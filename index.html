@@ -257,7 +257,7 @@
   /* ------------------------------- PLAYER ------------------------------ */
   var current = null; // { story, quiz }
   var video = $("video");
-  var cues = [], activeCue = -1, capsOn = true, sceneEls = [];
+  var cues = [], activeCue = -1, capsOn = true, sceneEls = [], readerAvailable = false;
 
   function stopVideo() { try { video.pause(); } catch (e) {} }
 
@@ -297,6 +297,7 @@
   function watchAgain(autoplay) {
     $("quizBox").classList.add("hidden");
     $("videoBox").classList.remove("hidden");
+    $("reader").classList.toggle("hidden", !readerAvailable);
     var url = safeUrl(current.story.videoUrl);
     if (video.getAttribute("src") !== url) video.setAttribute("src", url);
     var poster = safeUrl(current.story.coverUrl);
@@ -307,7 +308,7 @@
 
   /* ------------------- captions + "read the story" panel ------------------- */
   function resetReader() {
-    cues = []; activeCue = -1; sceneEls = [];
+    cues = []; activeCue = -1; sceneEls = []; readerAvailable = false;
     $("capLine").classList.add("hidden"); $("capLine").textContent = "";
     $("ccBtn").classList.add("hidden");
     $("reader").classList.add("hidden");
@@ -334,6 +335,7 @@
     } else {
       return;               // nothing to read -> keep the panel hidden
     }
+    readerAvailable = true;
     $("reader").classList.remove("hidden");
   }
 
@@ -386,6 +388,7 @@
     stopVideo();
     var box = $("quizBox");
     $("videoBox").classList.add("hidden");
+    $("reader").classList.add("hidden");          // no story text while taking the quiz
     box.classList.remove("hidden");
     var quiz = current && current.quiz;
     if (!quiz || !quiz.questions.length) {
