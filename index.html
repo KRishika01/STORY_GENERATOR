@@ -160,14 +160,43 @@
 (function () {
   "use strict";
 
-  // Where the backend lives. Empty = same server that served this page.
-  // To host this file elsewhere, open it as  watch.html?api=https://your-backend  (or set window.WATCH_API_BASE).
+  // Two ways to get data (chosen automatically):
+  //  1) STATIC SITE: a data.json file sitting next to this page (made by export_snapshot.py). No backend needed.
+  //  2) LIVE API: the FastAPI backend (same server that serves /watch, or watch.html?api=https://your-backend).
   var API = (new URLSearchParams(location.search).get("api") || window.WATCH_API_BASE || "").replace(/\/$/, "");
 
-  function getJSON(path) {
+  function liveGet(path) {
     return fetch(API + "/watch/api" + path).then(function (r) {
       if (!r.ok) { var e = new Error("HTTP " + r.status); e.status = r.status; throw e; }
       return r.json();
+    });
+  }
+
+  var snapshotP = null;
+  function loadSnapshot() {
+    if (API) return Promise.resolve(null);          // an explicit ?api= always means "use the live backend"
+    if (!snapshotP) {
+      snapshotP = fetch("data.json", { cache: "no-cache" })
+        .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+        .then(function (d) { if (!d || !Array.isArray(d.stories)) throw 0; return d; })
+        .catch(function () { return null; });         // no data.json -> live API mode
+    }
+    return snapshotP;
+  }
+
+  function notFound() { var e = new Error("HTTP 404"); e.status = 404; return e; }
+
+  function fromSnapshot(snap, path) {
+    if (path === "/stories") return snap.stories.map(function (s) { return s.summary; });
+    var m = path.match(/^\/stories\/([0-9a-fA-F]{24})(\/captions)?$/);
+    var hit = m && snap.stories.filter(function (s) { return s.summary.id === m[1]; })[0];
+    if (!hit) throw notFound();
+    return m[2] ? { cues: hit.cues || [] } : { story: hit.story, quiz: hit.quiz };
+  }
+
+  function getJSON(path) {
+    return loadSnapshot().then(function (snap) {
+      return snap ? fromSnapshot(snap, path) : liveGet(path);
     });
   }
   // Only ever put http(s) URLs into src attributes.
